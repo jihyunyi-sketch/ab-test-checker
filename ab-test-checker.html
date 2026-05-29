@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A/B Test 필요 여부 체크 / A/Bテスト要否チェック</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif; background: #f5f7fa; color: #1a1a2e; }
+
+  .header { background: #2c3e7a; color: white; padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header .subtitle { font-size: 13px; opacity: 0.75; margin-top: 4px; }
+
+  .lang-toggle { display: flex; gap: 8px; }
+  .lang-btn { padding: 6px 16px; border: 2px solid rgba(255,255,255,0.5); background: transparent; color: white; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+  .lang-btn.active { background: white; color: #2c3e7a; border-color: white; }
+
+  .container { max-width: 800px; margin: 0 auto; padding: 32px 16px; }
+
+  .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card-title { font-size: 16px; font-weight: 700; color: #2c3e7a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card-title .icon { font-size: 18px; }
+
+  .desc-box { width: 100%; min-height: 100px; padding: 12px; border: 1.5px solid #dce3f0; border-radius: 8px; font-size: 14px; resize: vertical; font-family: inherit; color: #1a1a2e; line-height: 1.6; }
+  .desc-box:focus { outline: none; border-color: #2c3e7a; }
+  .desc-hint { font-size: 12px; color: #888; margin-top: 6px; }
+
+  .prefilter-list { display: flex; flex-direction: column; gap: 10px; }
+  .prefilter-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1.5px solid #dce3f0; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+  .prefilter-item:hover { border-color: #2c3e7a; background: #f0f4ff; }
+  .prefilter-item.checked { border-color: #2c3e7a; background: #eef2ff; }
+  .prefilter-item input[type="checkbox"] { margin-top: 2px; accent-color: #2c3e7a; width: 16px; height: 16px; flex-shrink: 0; }
+  .prefilter-label { font-size: 14px; line-height: 1.5; }
+  .prefilter-sub { font-size: 12px; color: #666; margin-top: 2px; }
+
+  .prefilter-alert { background: #e8f5e9; border: 1.5px solid #81c784; border-radius: 8px; padding: 12px 16px; font-size: 14px; color: #2e7d32; display: none; margin-top: 12px; }
+
+  .score-item { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
+  .score-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .score-label { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #333; }
+  .score-options { display: flex; flex-wrap: wrap; gap: 8px; }
+  .score-option { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px solid #dce3f0; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.15s; background: white; }
+  .score-option:hover { border-color: #2c3e7a; background: #f0f4ff; }
+  .score-option.selected { border-color: #2c3e7a; background: #2c3e7a; color: white; }
+  .score-option input { display: none; }
+  .score-badge { font-weight: 700; font-size: 12px; }
+
+  .mitigation-list { display: flex; flex-direction: column; gap: 8px; }
+  .mitigation-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 1.5px solid #dce3f0; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+  .mitigation-item:hover { border-color: #27ae60; background: #f0fff4; }
+  .mitigation-item.checked { border-color: #27ae60; background: #e8f5e9; }
+  .mitigation-item input[type="checkbox"] { margin-top: 2px; accent-color: #27ae60; width: 16px; height: 16px; flex-shrink: 0; }
+  .mitigation-label { font-size: 14px; line-height: 1.5; flex: 1; }
+  .mitigation-score { font-size: 13px; font-weight: 700; color: #27ae60; white-space: nowrap; }
+
+  .result-card { background: white; border-radius: 12px; padding: 28px; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); border: 2px solid transparent; }
+  .result-card.unnecessary { border-color: #27ae60; }
+  .result-card.recommended { border-color: #f39c12; }
+  .result-card.required { border-color: #e74c3c; }
+
+  .result-scores { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .score-box { flex: 1; min-width: 140px; background: #f5f7fa; border-radius: 8px; padding: 14px; text-align: center; }
+  .score-box .num { font-size: 32px; font-weight: 800; }
+  .score-box .lbl { font-size: 12px; color: #666; margin-top: 2px; }
+  .score-box.add .num { color: #e74c3c; }
+  .score-box.minus .num { color: #27ae60; }
+  .score-box.total .num { color: #2c3e7a; }
+
+  .result-judgment { text-align: center; padding: 20px; border-radius: 10px; }
+  .result-judgment.unnecessary { background: #e8f5e9; }
+  .result-judgment.recommended { background: #fff8e1; }
+  .result-judgment.required { background: #ffebee; }
+  .result-icon { font-size: 40px; margin-bottom: 8px; }
+  .result-text { font-size: 20px; font-weight: 800; }
+  .result-text.unnecessary { color: #2e7d32; }
+  .result-text.recommended { color: #e65100; }
+  .result-text.required { color: #c62828; }
+  .result-desc { font-size: 14px; color: #555; margin-top: 6px; line-height: 1.5; }
+
+  .inquiry-section { margin-top: 12px; }
+  .inquiry-label { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #333; }
+  .inquiry-box { width: 100%; min-height: 80px; padding: 10px 12px; border: 1.5px solid #dce3f0; border-radius: 8px; font-size: 14px; resize: vertical; font-family: inherit; }
+  .inquiry-box:focus { outline: none; border-color: #2c3e7a; }
+
+  .reset-btn { width: 100%; padding: 14px; background: #f5f7fa; border: 1.5px solid #dce3f0; border-radius: 8px; font-size: 15px; font-weight: 600; color: #666; cursor: pointer; transition: all 0.2s; }
+  .reset-btn:hover { background: #eef2ff; border-color: #2c3e7a; color: #2c3e7a; }
+
+  .locked { opacity: 0.4; pointer-events: none; }
+  .step-badge { display: inline-block; background: #2c3e7a; color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-right: 6px; }
+
+  .ko { display: block; }
+  .ja { display: none; }
+  body.ja .ko { display: none; }
+  body.ja .ja { display: block; }
+
+  @media (max-width: 600px) {
+    .header { flex-direction: column; gap: 12px; align-items: flex-start; }
+    .result-scores { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="ko">
+      <h1>추천 시스템 A/B Test 필요 여부 체크</h1>
+      <div class="subtitle">Home Feed 추천 변경사항의 사용자 A/B Test 필요 여부를 판단합니다</div>
+    </div>
+    <div class="ja">
+      <h1>レコメンドシステム A/Bテスト要否チェック</h1>
+      <div class="subtitle">Home Feed レコメンド変更のユーザーA/Bテスト要否を判定します</div>
+    </div>
+  </div>
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('ko')">한국어</button>
+    <button class="lang-btn" onclick="setLang('ja')">日本語</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Step 1: 변경사항 입력 -->
+  <div class="card" id="step1">
+    <div class="card-title">
+      <span class="step-badge">STEP 1</span>
+      <span class="ko">변경사항 설명</span>
+      <span class="ja">変更内容の説明</span>
+    </div>
+    <textarea class="desc-box" id="desc" placeholder="" oninput="updateDesc()"></textarea>
+    <div class="desc-hint ko">예: 포스트 카테고리와 Meta tag를 ML 추천 모델의 feature로 추가할 예정입니다.</div>
+    <div class="desc-hint ja">例: ポストのカテゴリとMetaタグをMLレコメンドモデルのfeatureとして追加する予定です。</div>
+  </div>
+
+  <!-- Step 2: 사전 필터 -->
+  <div class="card" id="step2">
+    <div class="card-title">
+      <span class="step-badge">STEP 2</span>
+      <span class="ko">사전 필터 — 해당 항목 선택</span>
+      <span class="ja">事前フィルター — 該当項目を選択</span>
+    </div>
+    <div class="ko" style="font-size:13px;color:#666;margin-bottom:12px;">하나 이상 해당하는 경우에만 체크리스트를 진행합니다.</div>
+    <div class="ja" style="font-size:13px;color:#666;margin-bottom:12px;">1つ以上該当する場合のみチェックリストを進めます。</div>
+    <div class="prefilter-list">
+      <label class="prefilter-item" id="pf0">
+        <input type="checkbox" onchange="updatePrefilter()">
+        <div>
+          <div class="prefilter-label ko">ranking score 또는 sorting 기준 직접 변경</div>
+          <div class="prefilter-label ja">ranking scoreまたはソート基準の直接変更</div>
+          <div class="prefilter-sub ko">최종 ranker score 변경</div>
+          <div class="prefilter-sub ja">最終 ranker score の変更</div>
+        </div>
+      </label>
+      <label class="prefilter-item" id="pf1">
+        <input type="checkbox" onchange="updatePrefilter()">
+        <div>
+          <div class="prefilter-label ko">주요 추천 비율 대폭 변경</div>
+          <div class="prefilter-label ja">主要レコメンド比率の大幅変更</div>
+          <div class="prefilter-sub ko">M/C/P 비율 15%p 이상 변경</div>
+          <div class="prefilter-sub ja">M/C/P 比率 15%p 以上の変更</div>
+        </div>
+      </label>
+      <label class="prefilter-item" id="pf2">
+        <input type="checkbox" onchange="updatePrefilter()">
+        <div>
+          <div class="prefilter-label ko">신규 source 또는 신규 콘텐츠 타입 추가</div>
+          <div class="prefilter-label ja">新規ソースまたは新規コンテンツタイプの追加</div>
+          <div class="prefilter-sub ko">새로운 candidate source 추가</div>
+          <div class="prefilter-sub ja">新しい candidate source の追加</div>
+        </div>
+      </label>
+      <label class="prefilter-item" id="pf3">
+        <input type="checkbox" onchange="updatePrefilter()">
+        <div>
+          <div class="prefilter-label ko">전체 유저 또는 주요 유저군 KPI 영향 예상</div>
+          <div class="prefilter-label ja">全ユーザーまたは主要ユーザー群のKPI影響予測</div>
+          <div class="prefilter-sub ko">Home 전체 traffic 영향</div>
+          <div class="prefilter-sub ja">Home 全体 traffic への影響</div>
+        </div>
+      </label>
+      <label class="prefilter-item" id="pf4">
+        <input type="checkbox" onchange="updatePrefilter()">
+        <div>
+          <div class="prefilter-label ko">KPI 기반 유지/원복 의사결정 필요</div>
+          <div class="prefilter-label ja">KPIベースの維持/ロールバック意思決定が必要</div>
+          <div class="prefilter-sub ko">성과 기준 go/no-go 판단</div>
+          <div class="prefilter-sub ja">成果基準での go/no-go 判断</div>
+        </div>
+      </label>
+    </div>
+    <div class="prefilter-alert ko" id="pfAlert">✅ 해당 조건 없음 — 사용자 A/B Test가 필요하지 않습니다.</div>
+    <div class="prefilter-alert ja" id="pfAlertJa">✅ 該当条件なし — ユーザーA/Bテストは不要です。</div>
+  </div>
+
+  <!-- Step 3: 가산 항목 -->
+  <div class="card locked" id="step3">
+    <div class="card-title">
+      <span class="step-badge">STEP 3</span>
+      <span class="ko">가산 항목</span>
+      <span class="ja">加算項目</span>
+    </div>
+
+    <!-- 초기 가설 검증 필요성 -->
+    <div class="score-item">
+      <div class="score-label ko">초기 가설 검증 필요성</div>
+      <div class="score-label ja">初期仮説検証の必要性</div>
+      <div class="score-options" id="add0">
+        <label class="score-option selected" onclick="selectScore('add0',0,this)"><input type="radio" name="add0" value="0"><span class="ko">없음</span><span class="ja">なし</span> <span class="score-badge">0pt</span></label>
+        <label class="score-option" onclick="selectScore('add0',2,this)"><input type="radio" name="add0" value="2"><span class="ko">특정 KPI 개선 가설 검증</span><span class="ja">特定KPI改善の仮説検証</span> <span class="score-badge">2pt</span></label>
+        <label class="score-option" onclick="selectScore('add0',3,this)"><input type="radio" name="add0" value="3"><span class="ko">전략 & 방향성 변경 관련 가설 검증</span><span class="ja">戦略・方針変更に関する仮説検証</span> <span class="score-badge">3pt</span></label>
+      </div>
+    </div>
+
+    <!-- 콘텐츠 종류 변화 -->
+    <div class="score-item">
+      <div class="score-label ko">콘텐츠 종류 변화</div>
+      <div class="score-label ja">コンテンツ種類の変化</div>
+      <div class="score-options" id="add1">
+        <label class="score-option selected" onclick="selectScore('add1',0,this)"><input type="radio" name="add1" value="0"><span class="ko">없음</span><span class="ja">なし</span> <span class="score-badge">0pt</span></label>
+        <label class="score-option" onclick="selectScore('add1',2,this)"><input type="radio" name="add1" value="2"><span class="ko">일부 post_type 추가/제외</span><span class="ja">一部 post_type 追加/除外</span> <span class="score-badge">2pt</span></label>
+        <label class="score-option" onclick="selectScore('add1',3,this)"><input type="radio" name="add1" value="3"><span class="ko">신규 platform contents 추가</span><span class="ja">新規 platform contents 追加</span> <span class="score-badge">3pt</span></label>
+      </div>
+    </div>
+
+    <!-- 노출 순서 변화 -->
+    <div class="score-item">
+      <div class="score-label ko">노출 순서 변화</div>
+      <div class="score-label ja">表示順序の変化</div>
+      <div class="score-options" id="add2">
+        <label class="score-option selected" onclick="selectScore('add2',0,this)"><input type="radio" name="add2" value="0"><span class="ko">없음</span><span class="ja">なし</span> <span class="score-badge">0pt</span></label>
+        <label class="score-option" onclick="selectScore('add2',2,this)"><input type="radio" name="add2" value="2"><span class="ko">ranking에 영향 있음</span><span class="ja">rankingへの影響あり</span> <span class="score-badge">2pt</span></label>
+        <label class="score-option" onclick="selectScore('add2',3,this)"><input type="radio" name="add2" value="3"><span class="ko">feed delivery logic 구조적 변경</span><span class="ja">feed delivery logic の構造的変更</span> <span class="score-badge">3pt</span></label>
+      </div>
+    </div>
+
+    <!-- 후보군 변화 -->
+    <div class="score-item">
+      <div class="score-label ko">후보군 변화</div>
+      <div class="score-label ja">候補群の変化</div>
+      <div class="score-options" id="add3">
+        <label class="score-option selected" onclick="selectScore('add3',0,this)"><input type="radio" name="add3" value="0"><span class="ko">없음</span><span class="ja">なし</span> <span class="score-badge">0pt</span></label>
+        <label class="score-option" onclick="selectScore('add3',1,this)"><input type="radio" name="add3" value="1"><span class="ko">CDG 참조 데이터 변경/추가/삭제</span><span class="ja">CDG 参照データ変更/追加/削除</span> <span class="score-badge">1pt</span></label>
+        <label class="score-option" onclick="selectScore('add3',2,this)"><input type="radio" name="add3" value="2"><span class="ko">CDG 내 가중치 조정 또는 로직 변경</span><span class="ja">CDG 内重み調整またはロジック変更</span> <span class="score-badge">2pt</span></label>
+        <label class="score-option" onclick="selectScore('add3',3,this)"><input type="radio" name="add3" value="3"><span class="ko">신규 candidate generator 추가/삭제</span><span class="ja">新規 candidate generator 追加/削除</span> <span class="score-badge">3pt</span></label>
+      </div>
+    </div>
+
+    <!-- 추천 비율 변화 -->
+    <div class="score-item">
+      <div class="score-label ko">추천 비율 변화</div>
+      <div class="score-label ja">レコメンド比率の変化</div>
+      <div class="score-options" id="add4">
+        <label class="score-option selected" onclick="selectScore('add4',0,this)"><input type="radio" name="add4" value="0"><span class="ko">없음</span><span class="ja">なし</span> <span class="score-badge">0pt</span></label>
+        <label class="score-option" onclick="selectScore('add4',1,this)"><input type="radio" name="add4" value="1"><span class="ko">serving_type, platform_type 비율 변경</span><span class="ja">serving_type, platform_type 比率変更</span> <span class="score-badge">1pt</span></label>
+        <label class="score-option" onclick="selectScore('add4',2,this)"><input type="radio" name="add4" value="2"><span class="ko">신규 type 비율 조정 / delivery logic 변경 수반</span><span class="ja">新規 type 比率調整 / delivery logic 変更伴う</span> <span class="score-badge">2pt</span></label>
+      </div>
+    </div>
+
+    <!-- KPI 영향 가능성 -->
+    <div class="score-item">
+      <div class="score-label ko">KPI 영향 가능성</div>
+      <div class="score-label ja">KPI影響の可能性</div>
+      <div class="score-options" id="add5">
+        <label class="score-option selected" onclick="selectScore('add5',0,this)"><input type="radio" name="add5" value="0"><span class="ko">없음</span><span class="ja">なし</span> <span class="score-badge">0pt</span></label>
+        <label class="score-option" onclick="selectScore('add5',2,this)"><input type="radio" name="add5" value="2"><span class="ko">Monitoring 지표 영향 (소비 관련)</span><span class="ja">Monitoring指標への影響（消費関連）</span> <span class="score-badge">2pt</span></label>
+        <label class="score-option" onclick="selectScore('add5',3,this)"><input type="radio" name="add5" value="3"><span class="ko">Main KPI 직접 영향 (Retention, scroll rate, EU)</span><span class="ja">Main KPI 直接影響（Retention, scroll rate, EU）</span> <span class="score-badge">3pt</span></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: 완화 항목 -->
+  <div class="card locked" id="step4">
+    <div class="card-title">
+      <span class="step-badge">STEP 4</span>
+      <span class="ko">완화 항목 (해당하는 것 모두 체크)</span>
+      <span class="ja">緩和項目（該当するものをすべてチェック）</span>
+    </div>
+    <div class="mitigation-list">
+      <label class="mitigation-item" id="mit0">
+        <input type="checkbox" onchange="updateMit(0,-2,this)">
+        <div class="mitigation-label">
+          <span class="ko">기본 구조 변경 없이 tuning/모델 고도화/품질 개선 목적의 세부 조정</span>
+          <span class="ja">基本構造変更なし、tuning/モデル高度化/品質改善目的の細部調整</span>
+        </div>
+        <div class="mitigation-score">-2pt</div>
+      </label>
+      <label class="mitigation-item" id="mit1">
+        <input type="checkbox" onchange="updateMit(1,-2,this)">
+        <div class="mitigation-label">
+          <span class="ko">기존 source (학습 데이터 테이블, 항목) 유지</span>
+          <span class="ja">既存ソース（学習データテーブル・項目）維持</span>
+        </div>
+        <div class="mitigation-score">-2pt</div>
+      </label>
+      <label class="mitigation-item" id="mit2">
+        <input type="checkbox" onchange="updateMit(2,-2,this)">
+        <div class="mitigation-label">
+          <span class="ko">fallback / cap / calibration 존재</span>
+          <span class="ja">fallback / cap / calibration が存在する</span>
+        </div>
+        <div class="mitigation-score">-2pt</div>
+      </label>
+      <label class="mitigation-item" id="mit3">
+        <input type="checkbox" onchange="updateMit(3,-2,this)">
+        <div class="mitigation-label">
+          <span class="ko">즉시 rollback 가능</span>
+          <span class="ja">即時 rollback 可能</span>
+        </div>
+        <div class="mitigation-score">-2pt</div>
+      </label>
+      <label class="mitigation-item" id="mit4">
+        <input type="checkbox" onchange="updateMit(4,-3,this)">
+        <div class="mitigation-label">
+          <span class="ko">내부 설정 / 로그 / 매핑 변경</span>
+          <span class="ja">内部設定 / ログ / マッピング変更</span>
+        </div>
+        <div class="mitigation-score">-3pt</div>
+      </label>
+      <label class="mitigation-item" id="mit5">
+        <input type="checkbox" onchange="updateMit(5,-3,this)">
+        <div class="mitigation-label">
+          <span class="ko">QA / 로그 모니터링으로 검증 가능</span>
+          <span class="ja">QA / ログモニタリングで検証可能</span>
+        </div>
+        <div class="mitigation-score">-3pt</div>
+      </label>
+      <label class="mitigation-item" id="mit6">
+        <input type="checkbox" onchange="updateMit(6,-3,this)">
+        <div class="mitigation-label">
+          <span class="ko">정책상 반드시 적용해야 하는 변경</span>
+          <span class="ja">ポリシー上、必ず適用しなければならない変更</span>
+        </div>
+        <div class="mitigation-score">-3pt</div>
+      </label>
+    </div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="result-card" id="resultCard">
+    <div class="card-title">
+      <span class="icon">📊</span>
+      <span class="ko">판정 결과</span>
+      <span class="ja">判定結果</span>
+    </div>
+    <div class="result-scores">
+      <div class="score-box add">
+        <div class="num" id="addScore">0</div>
+        <div class="lbl ko">가산 점수</div>
+        <div class="lbl ja">加算スコア</div>
+      </div>
+      <div class="score-box minus">
+        <div class="num" id="mitScore">0</div>
+        <div class="lbl ko">완화 점수</div>
+        <div class="lbl ja">緩和スコア</div>
+      </div>
+      <div class="score-box total">
+        <div class="num" id="totalScore">0</div>
+        <div class="lbl ko">최종 점수</div>
+        <div class="lbl ja">最終スコア</div>
+      </div>
+    </div>
+    <div class="result-judgment" id="resultJudgment">
+      <div class="result-icon" id="resultIcon">📋</div>
+      <div class="result-text" id="resultText"></div>
+      <div class="result-desc" id="resultDesc"></div>
+    </div>
+
+    <div class="inquiry-section" style="margin-top:20px;">
+      <div class="inquiry-label ko">문의사항</div>
+      <div class="inquiry-label ja">お問い合わせ・備考</div>
+      <textarea class="inquiry-box" id="inquiry" placeholder=""></textarea>
+      <div class="desc-hint ko" style="margin-top:6px;">판단이 어렵거나 추가 논의가 필요한 경우 여기에 작성해주세요.</div>
+      <div class="desc-hint ja" style="margin-top:6px;">判断が難しい場合や追加議論が必要な場合はこちらにご記入ください。</div>
+    </div>
+  </div>
+
+  <button class="reset-btn" onclick="resetAll()">
+    <span class="ko">↺ 초기화</span>
+    <span class="ja">↺ リセット</span>
+  </button>
+
+</div>
+
+<script>
+  let lang = 'ko';
+  let addScores = [0,0,0,0,0,0];
+  let mitScores = [0,0,0,0,0,0,0];
+  let prefilterPassed = false;
+
+  function setLang(l) {
+    lang = l;
+    document.body.className = l;
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    updatePlaceholders();
+  }
+
+  function updatePlaceholders() {
+    const desc = document.getElementById('desc');
+    const inq = document.getElementById('inquiry');
+    if (lang === 'ko') {
+      desc.placeholder = '변경사항을 자유롭게 설명해주세요.\n예: 포스트 카테고리와 Meta tag를 ML 추천 모델의 feature로 추가할 예정입니다.';
+      inq.placeholder = '판단이 어렵거나 추가 논의가 필요한 내용을 입력해주세요.';
+    } else {
+      desc.placeholder = '変更内容を自由に記述してください。\n例: ポストのカテゴリとMetaタグをMLレコメンドモデルのfeatureとして追加する予定です。';
+      inq.placeholder = '判断が難しい場合や、追加で議論が必要な内容を入力してください。';
+    }
+  }
+
+  function updateDesc() { /* desc is just informational */ }
+
+  function updatePrefilter() {
+    const checkboxes = document.querySelectorAll('.prefilter-item input[type=checkbox]');
+    let anyChecked = false;
+    checkboxes.forEach((cb, i) => {
+      document.getElementById('pf'+i).classList.toggle('checked', cb.checked);
+      if (cb.checked) anyChecked = true;
+    });
+
+    prefilterPassed = anyChecked;
+    document.getElementById('pfAlert').style.display = anyChecked ? 'none' : 'block';
+    document.getElementById('pfAlertJa').style.display = anyChecked ? 'none' : 'block';
+
+    document.getElementById('step3').classList.toggle('locked', !anyChecked);
+    document.getElementById('step4').classList.toggle('locked', !anyChecked);
+
+    if (!anyChecked) {
+      // 사전 필터 미해당 → 강제 불필요 판정
+      showResult(0, 0, 'unnecessary');
+    } else {
+      calcResult();
+    }
+  }
+
+  function selectScore(groupId, val, el) {
+    document.querySelectorAll(`#${groupId} .score-option`).forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    const idx = parseInt(groupId.replace('add',''));
+    addScores[idx] = val;
+    calcResult();
+  }
+
+  function updateMit(idx, val, cb) {
+    document.getElementById('mit'+idx).classList.toggle('checked', cb.checked);
+    mitScores[idx] = cb.checked ? val : 0;
+    calcResult();
+  }
+
+  function calcResult() {
+    if (!prefilterPassed) return;
+    const add = addScores.reduce((a,b) => a+b, 0);
+    const mit = mitScores.reduce((a,b) => a+b, 0);
+    const total = Math.max(0, add + mit);
+    let type = total <= 4 ? 'unnecessary' : total <= 7 ? 'recommended' : 'required';
+    showResult(add, mit, type, total);
+  }
+
+  function showResult(add, mit, type, total) {
+    const actualTotal = total !== undefined ? total : 0;
+    document.getElementById('addScore').textContent = add;
+    document.getElementById('mitScore').textContent = mit;
+    document.getElementById('totalScore').textContent = actualTotal;
+
+    const card = document.getElementById('resultCard');
+    card.className = 'result-card ' + type;
+
+    const judgment = document.getElementById('resultJudgment');
+    judgment.className = 'result-judgment ' + type;
+
+    const icons = { unnecessary: '✅', recommended: '⚠️', required: '🚨' };
+    const texts = {
+      unnecessary: { ko: 'A/B Test 불필요', ja: 'A/Bテスト 不要' },
+      recommended: { ko: 'A/B Test 권장', ja: 'A/Bテスト 推奨' },
+      required:    { ko: 'A/B Test 필수', ja: 'A/Bテスト 必須' }
+    };
+    const descs = {
+      unnecessary: {
+        ko: 'QA 및 로그 모니터링으로 검증 진행을 권장합니다.',
+        ja: 'QAおよびログモニタリングによる検証を推奨します。'
+      },
+      recommended: {
+        ko: 'KPI 비교 검증을 위해 A/B Test 진행을 권장합니다.',
+        ja: 'KPI比較検証のためA/BテストM進行を推奨します。'
+      },
+      required: {
+        ko: '제품 의사결정을 위해 A/B Test가 필수입니다.',
+        ja: '製品意思決定のためA/Bテストが必須です。'
+      }
+    };
+
+    document.getElementById('resultIcon').textContent = icons[type];
+
+    const rt = document.getElementById('resultText');
+    rt.className = 'result-text ' + type;
+    rt.innerHTML = `<span class="ko">${texts[type].ko}</span><span class="ja">${texts[type].ja}</span>`;
+
+    document.getElementById('resultDesc').innerHTML =
+      `<span class="ko">${descs[type].ko}</span><span class="ja">${descs[type].ja}</span>`;
+
+    // re-apply lang
+    document.body.className = lang;
+  }
+
+  function resetAll() {
+    document.getElementById('desc').value = '';
+    document.getElementById('inquiry').value = '';
+    document.querySelectorAll('.prefilter-item input').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('.prefilter-item').forEach(el => el.classList.remove('checked'));
+    document.getElementById('pfAlert').style.display = 'none';
+    document.getElementById('pfAlertJa').style.display = 'none';
+    document.getElementById('step3').classList.add('locked');
+    document.getElementById('step4').classList.add('locked');
+    document.querySelectorAll('.mitigation-item input').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('.mitigation-item').forEach(el => el.classList.remove('checked'));
+    addScores = [0,0,0,0,0,0];
+    mitScores = [0,0,0,0,0,0,0];
+    prefilterPassed = false;
+    // reset radio selections
+    ['add0','add1','add2','add3','add4','add5'].forEach(id => {
+      const opts = document.querySelectorAll(`#${id} .score-option`);
+      opts.forEach((o,i) => o.classList.toggle('selected', i===0));
+    });
+    showResult(0, 0, 'unnecessary', 0);
+    document.getElementById('resultCard').className = 'result-card';
+    document.getElementById('resultJudgment').className = 'result-judgment';
+    document.getElementById('resultIcon').textContent = '📋';
+    document.getElementById('resultText').textContent = '';
+    document.getElementById('resultDesc').textContent = '';
+  }
+
+  // init placeholders
+  updatePlaceholders();
+</script>
+</body>
+</html>
